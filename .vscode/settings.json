@@ -1,0 +1,13 @@
+{
+  "github.copilot.chat.commitMessageGeneration.instructions": [
+    { "file": ".github/git-commit-instructions.md" }
+  ],
+
+  // Optional
+  "git.inputValidation": true,
+  "git.inputValidationSubjectLength": 50,
+  "git.inputValidationLength": 72,
+  "[scminput]": {
+    "editor.rulers": [50, 72]
+  }
+}
