@@ -12,11 +12,11 @@ def obs_simulation(
     dt: float,
     obs_every: int,
     args,
-    sigma_obs: float,
+    noise_std: float,
     rng: np.random.Generator,
 ):
     """Noisy observations of the true trajectory, on the same time grid as rk4_solve."""
     t_obs, x_true = rk4_solve(f, [0, t_max], x0, dt, args=args, save_every=obs_every)
-    y_obs = x_true + sigma_obs * rng.standard_normal(x_true.shape)  # noisy observation
+    y_obs = x_true + noise_std * rng.standard_normal(x_true.shape)  # noisy observation
 
-    return t_obs, y_obs
+    return t_obs, y_obs, x_true
