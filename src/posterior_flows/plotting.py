@@ -10,7 +10,9 @@ def plot_attractor(t_vals, state, rho_val):
     # attractor in 3D
     ax1 = fig.add_subplot(1, 2, 1, projection="3d")
     ax1.plot(x, y, z, lw=0.5)
-    ax1.set_xlabel("x"); ax1.set_ylabel("y"); ax1.set_zlabel("z")
+    ax1.set_xlabel("x")
+    ax1.set_ylabel("y")
+    ax1.set_zlabel("z")
     ax1.set_title(rf"Lorenz-63, $\rho$ = {rho_val}")
 
     # time series
