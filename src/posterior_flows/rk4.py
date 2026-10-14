@@ -20,7 +20,7 @@ def rk4_solve(
     Returns t of shape (n_save,) and Y of shape (3, n_save) or (3, n_save, N)."""
 
     t0, t1 = t_span
-    n_steps = int(round((t1 - t0) / dt))
+    n_steps = round((t1 - t0) / dt)
     n_save = n_steps // save_every + 1
 
     y = np.array(y0, dtype=float)
