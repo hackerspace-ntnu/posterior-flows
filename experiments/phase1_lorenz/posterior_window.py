@@ -14,7 +14,7 @@ def main():
     rho = 28
     b = 8 / 3
     dt = 0.01
-    t_max = 2
+    t_max = 10
     obs_every = 10
     N = 2000
     rng = np.random.default_rng(0)
@@ -48,7 +48,7 @@ def main():
         y_obs, x0, t_max, dt, obs_every, noise_std, sigma, b
     )
 
-    loglik = np.array([log_likelihood(theta=[rho_i]) for rho_i in rho_vals])
+    loglik = log_likelihood(rho=rho_vals)
     logpost = loglik - logsumexp(loglik)  # avoid underflow
 
     plt.figure()
