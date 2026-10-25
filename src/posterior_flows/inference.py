@@ -30,28 +30,28 @@ def gaussian_log_likelihood(
     return ll
 
 
+def make_unpack_rho_x0(sigma, b) -> Callable:
+    """theta = [rho, x0_x, x0_y, x0_z]."""
+
+    def unpack(theta):
+        return theta[:, 1:].T, (sigma, theta[:, 0], b)
+
+    return unpack
+
+
 def make_lorenz63_log_likelihood(
-    y_obs: jnp.ndarray,
-    x0: jnp.ndarray,
-    t_max: float,
-    dt: float,
-    obs_every: int,
-    noise_std: float,
-    sigma: float,
-    b: float,
+    unpack: Callable, t_max: float, dt: float, obs_every: int, noise_std: float
 ) -> Callable:
-    """log p(y_obs | rho) for Lorenz-63 with known x0, sigma and b. theta = [rho]."""
+    """log p(y_obs | theta). theta: (d,) or (N, d)."""
 
     @jax.jit
-    def log_likelihood(rho):
-        rho = jnp.atleast_1d(jnp.asarray(rho, dtype=float))  # (N,)
-        state0 = jnp.repeat(x0[:, None], rho.size, axis=1)  # (3, N)
+    def log_likelihood(theta, y_obs):  # y_obs as argument -> compiled once
+        theta = jnp.atleast_2d(jnp.asarray(theta, dtype=float))
+        state0, args = unpack(theta)
         _, X = rk4_solve(
-            lorenz63, [0, t_max], state0, dt, args=(sigma, rho, b), save_every=obs_every
+            lorenz63, [0, t_max], state0, dt, args=args, save_every=obs_every
         )
-
         X_pred = jnp.moveaxis(X, -1, 0)  # (N, 3, n_obs)
-
         return gaussian_log_likelihood(y_obs, X_pred, noise_std, include_constant=False)
 
     return log_likelihood
