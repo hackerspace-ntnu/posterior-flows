@@ -1,7 +1,8 @@
+import jax
 import matplotlib.pyplot as plt
 
 
-def plot_attractor(t_vals, state, rho_val):
+def plot_attractor(t_vals: jax.Array, state: tuple[jax.Array, ...], rho_val: float):
     """Plots the solution of the Lorenz-63 system"""
     x, y, z = state
 
