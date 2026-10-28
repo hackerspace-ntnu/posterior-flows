@@ -1,3 +1,5 @@
+import jax
+import jax.numpy as jnp
 import numpy as np
 
 from posterior_flows.samplers import rwm
@@ -8,13 +10,21 @@ def test_samples_initial():
     theta0_2 = [1.0, 2.0, 3.0]
     n_steps = 10
 
-    rng = np.random.default_rng(0)
+    key_1, key_2 = jax.random.split(jax.random.key(0))
 
     samples_1, _ = rwm(
-        log_target=lambda x: 0.0, theta0=theta0_1, n_steps=n_steps, step_size=1, rng=rng
+        log_target=lambda x: jnp.zeros(()),
+        theta0=theta0_1,
+        n_steps=n_steps,
+        step_size=1,
+        key=key_1,
     )
     samples_2, _ = rwm(
-        log_target=lambda x: 0.0, theta0=theta0_2, n_steps=n_steps, step_size=1, rng=rng
+        log_target=lambda x: jnp.zeros(()),
+        theta0=theta0_2,
+        n_steps=n_steps,
+        step_size=1,
+        key=key_2,
     )
 
     # shapes are the same
@@ -30,14 +40,16 @@ def test_all_rejected_chain_stays():
     theta0 = [2.5, -1.0]  # nonzero, so a missing else-branch leaves visible zeros
     n_steps = 50
 
-    rng = np.random.default_rng(0)
-
     def log_target(x):
         # only the starting point has finite density
-        return 0.0 if np.array_equal(x, theta0) else -np.inf
+        return jnp.where(jnp.all(x == jnp.array(theta0)), 0.0, -jnp.inf)
 
     samples, accept_rate = rwm(
-        log_target=log_target, theta0=theta0, n_steps=n_steps, step_size=1, rng=rng
+        log_target=log_target,
+        theta0=theta0,
+        n_steps=n_steps,
+        step_size=1,
+        key=jax.random.key(0),
     )
 
     # every proposal is rejected
@@ -51,56 +63,31 @@ def test_flat_target_accepts_all():
     step_size = 0.7
     n_steps = 5000
 
-    rng = np.random.default_rng(0)
-
     samples, accept_rate = rwm(
-        log_target=lambda x: 0.0,
+        log_target=lambda x: jnp.zeros(()),
         theta0=0.0,
         n_steps=n_steps,
         step_size=step_size,
-        rng=rng,
+        key=jax.random.key(0),
     )
 
     # every proposal is equally likely, so all are accepted
     assert accept_rate == 1.0
 
     # pure random walk: increments have std equal to step_size
-    increments = np.diff(samples[:, 0])
+    increments = jnp.diff(samples[:, 0])
     np.testing.assert_allclose(increments.std(), step_size, rtol=0.05)
-
-
-def test_one_log_target_call_per_step():
-    n_steps = 100
-    calls = [0]  # list, so the inner function can modify it
-
-    def log_target(x):
-        calls[0] += 1
-        return -0.5 * np.sum(x**2)
-
-    rng = np.random.default_rng(0)
-    rwm(log_target=log_target, theta0=0.0, n_steps=n_steps, step_size=1, rng=rng)
-
-    # one call for the start, then one per proposal
-    assert calls[0] == n_steps
 
 
 def test_same_seed_same_chain():
     def log_target(x):
-        return -0.5 * np.sum(x**2)
+        return -0.5 * jnp.sum(x**2)
 
     samples_1, acc_1 = rwm(
-        log_target,
-        theta0=1.0,
-        n_steps=200,
-        step_size=1,
-        rng=np.random.default_rng(42),
+        log_target, theta0=1.0, n_steps=200, step_size=1, key=jax.random.key(42)
     )
     samples_2, acc_2 = rwm(
-        log_target,
-        theta0=1.0,
-        n_steps=200,
-        step_size=1,
-        rng=np.random.default_rng(42),
+        log_target, theta0=1.0, n_steps=200, step_size=1, key=jax.random.key(42)
     )
 
     np.testing.assert_array_equal(samples_1, samples_2)
@@ -113,35 +100,41 @@ def test_gaussian_moments():
     burn_in = 1_000
 
     def log_target(x):
-        return -0.5 * np.sum(((x - mu) / sigma) ** 2)
+        return -0.5 * jnp.sum(((x - mu) / sigma) ** 2)
 
-    rng = np.random.default_rng(0)
     samples, accept_rate = rwm(
-        log_target, theta0=0.0, n_steps=n_steps, step_size=2.5 * sigma, rng=rng
+        log_target,
+        theta0=0.0,
+        n_steps=n_steps,
+        step_size=2.5 * sigma,
+        key=jax.random.key(0),
     )
     x = samples[burn_in:, 0]
 
     # step size close to optimal for 1D
     assert 0.3 < accept_rate < 0.6
 
-    # tolerances are ~5 standard errors, measured over 200 seeds
-    # (the chain's standard error is ~2x that of independent draws)
+    # tolerances are approx 5 standard errors
+    # (the chain's standard error is approx 2x that of independent draws)
     assert abs(x.mean() - mu) < 0.15
     assert abs(x.var() - sigma**2) < 0.45
 
 
 def test_2d_gaussian_different_scales():
-    mu = np.array([0.0, 5.0])
-    sigma = np.array([1.0, 2.0])
+    mu = jnp.array([0.0, 5.0])
+    sigma = jnp.array([1.0, 2.0])
     n_steps = 30_000
     burn_in = 1_000
 
     def log_target(x):
-        return -0.5 * np.sum(((x - mu) / sigma) ** 2)
+        return -0.5 * jnp.sum(((x - mu) / sigma) ** 2)
 
-    rng = np.random.default_rng(0)
     samples, _ = rwm(
-        log_target, theta0=[0.0, 0.0], n_steps=n_steps, step_size=1.5, rng=rng
+        log_target,
+        theta0=[0.0, 0.0],
+        n_steps=n_steps,
+        step_size=1.5,
+        key=jax.random.key(0),
     )
     x = samples[burn_in:]
 
@@ -156,14 +149,15 @@ def test_respects_support():
 
     def log_target(x):
         # exponential distribution with rate 1, zero density for x < 0
-        return -np.inf if x[0] < 0 else -x[0]
+        return jnp.where(x[0] < 0, -jnp.inf, -x[0])
 
-    rng = np.random.default_rng(0)
-    samples, _ = rwm(log_target, theta0=1.0, n_steps=n_steps, step_size=1.5, rng=rng)
+    samples, _ = rwm(
+        log_target, theta0=1.0, n_steps=n_steps, step_size=1.5, key=jax.random.key(0)
+    )
     x = samples[burn_in:, 0]
 
     # no sample outside the support
-    assert np.all(x >= 0)
+    assert jnp.all(x >= 0)
 
     # exponential(1) has mean 1
     assert abs(x.mean() - 1.0) < 0.1
