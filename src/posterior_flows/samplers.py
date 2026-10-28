@@ -1,50 +1,46 @@
 from collections.abc import Callable
 
-import numpy as np
+import jax
+import jax.numpy as jnp
+from jax.typing import ArrayLike
 
 
 def rwm(
     log_target: Callable,
-    theta0: float | np.ndarray,
+    theta0: ArrayLike,
     n_steps: int,
     step_size: float,
-    rng: np.random.Generator,
-) -> tuple[np.ndarray, float]:
+    key: jax.Array,
+) -> tuple[jax.Array, jax.Array]:
     """Random walk Metropolis. Returns samples (n_steps, d) and acceptance rate."""
 
-    assert n_steps >= 2, "n_steps must be greater than two"
+    assert n_steps >= 2, "n_steps must be at least 2"
 
-    # let starting theta be a float and an array
-    theta_prev = np.array(theta0, dtype=float, ndmin=1)
-    d = theta_prev.size
+    # let starting theta be a float or an array
+    theta0 = jnp.array(theta0, dtype=float, ndmin=1)
+    logp0 = log_target(theta0)
 
-    # selection/samples array
-    samples = np.zeros((n_steps, d))
-    samples[0] = theta_prev
-    # initial prior
-    logp_prev = log_target(theta_prev)
+    # each iteration
+    def step(carry, key_i):
+        theta, logp = carry
+        key_prop, key_acc = jax.random.split(key_i)
 
-    accepted_steps = 0
+        # proposal
+        z = jax.random.normal(key_prop, theta.shape, dtype=theta.dtype)
+        theta_prop = theta + step_size * z
+        logp_prop = log_target(theta_prop)
 
-    for i in range(1, n_steps):
-        z = rng.standard_normal(d)
+        # accept/reject
+        accept = jnp.log(jax.random.uniform(key_acc)) < logp_prop - logp
+        theta = jnp.where(accept, theta_prop, theta)
+        logp = jnp.where(accept, logp_prop, logp)
 
-        theta_prev = samples[i - 1]
-        theta_next = theta_prev + step_size * z
+        return (theta, logp), (theta, accept)  # new carry, return data
 
-        logp_next = log_target(theta_next)
+    keys = jax.random.split(key, n_steps - 1)  # one key per step
+    _, (thetas, accepted) = jax.lax.scan(step, (theta0, logp0), keys)
 
-        u = rng.random()
-
-        if np.log(u) < logp_next - logp_prev:
-            # accepted step
-            samples[i] = theta_next
-            logp_prev = logp_next
-            accepted_steps += 1
-        else:
-            # denied step
-            samples[i] = theta_prev
-
-    accept_rate = accepted_steps / (n_steps - 1)
+    samples = jnp.concatenate([theta0[None], thetas])
+    accept_rate = jnp.mean(accepted)
 
     return samples, accept_rate
