@@ -1,3 +1,4 @@
+import jax
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -12,7 +13,7 @@ def main():
         return -0.5 * np.sum(theta**2)
 
     samples, accept_rate = rwm(
-        log_target, theta0=1, n_steps=20_000, step_size=2, rng=np.random.default_rng(0)
+        log_target, theta0=1, n_steps=20_000, step_size=2, key=jax.random.key(0)
     )
     x_vals = np.linspace(-4, 4, 1000)
 
