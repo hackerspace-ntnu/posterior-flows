@@ -1,9 +1,10 @@
-import numpy as np
+import jax
+import jax.numpy as jnp
 
 
 def lorenz63(
-    t: float, state: np.ndarray, sigma: float, rho: float | np.ndarray, b: float
-) -> np.ndarray:
+    t: float, state: jax.Array, sigma: float, rho: float | jax.Array, b: float
+) -> jax.Array:
     """Lorenz-63 differential system."""
     x, y, z = state
-    return np.array([sigma * (y - x), x * (rho - z) - y, x * y - b * z])
+    return jnp.array([sigma * (y - x), x * (rho - z) - y, x * y - b * z])
