@@ -49,6 +49,7 @@ def make_lorenz63_log_likelihood(
     def log_likelihood(
         theta: ArrayLike, y_obs: jax.Array
     ) -> jax.Array:  # y_obs as argument, so it is compiled once
+        theta_is_scalar = theta.ndim == 1
         theta = jnp.atleast_2d(jnp.asarray(theta, dtype=theta.dtype))
         state0, args = unpack(theta)
         _, X = rk4_solve(
@@ -57,6 +58,6 @@ def make_lorenz63_log_likelihood(
         X_pred = jnp.moveaxis(X, -1, 0)  # (N, d, n_obs)
         ll = gaussian_log_likelihood(y_obs, X_pred, noise_std, include_constant=False)
 
-        return ll[0] if theta.ndim == 1 else ll
+        return ll[0] if theta_is_scalar else ll
 
     return log_likelihood
